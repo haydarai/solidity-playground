@@ -1,19 +1,31 @@
 const { expect } = require('chai');
+const { BN, expectEvent, expectRevert } = require('@openzeppelin/test-helpers');
 
-// Start test block
-describe('Box', function () {
-    before(async function () {
-        this.Box = await ethers.getContractFactory('Box');
-    });
+const Box = artifacts.require('Box');
 
-    beforeEach(async function () {
-        this.box = await this.Box.deploy();
-        await this.box.deployed();
+contract('Box', function ([ owner, other ]) {
+    const value = new BN('42');
+
+    beforeEach(async function() {
+        this.box = await Box.new({ from: owner });
     });
 
     it('retrieve returns a value previously stored', async function () {
-        await this.box.store(42);
+        await this.box.store(value, { from: owner });
 
-        expect((await this.box.retrieve()).toString()).to.equal('42');
+        expect(await this.box.retrieve()).to.be.bignumber.equal(value);
+    });
+
+    it('store emits an event', async function () {
+        const receipt = await this.box.store(value, { from: owner });
+
+        expectEvent(receipt, 'ValueChanged', { value: value });
+    });
+
+    it('non owner cannot store a value', async function () {
+        await expectRevert(
+            this.box.store(value, { from: other }),
+            'Ownable: caller is not the owner',
+        );
     });
 });
